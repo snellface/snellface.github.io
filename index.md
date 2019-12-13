@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta charset="utf-8" />
+	<title></title>
+	<script src="https://code.jquery.com/jquery-3.4.1.min.js"
+			integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+			crossorigin="anonymous"></script>
+
+	<script type="text/javascript">
+		var worldCanvas = null;
+		var antCanvas = null;
+		var updateTimer = null;
+		var updateInterval = 2;
+		var ants = [];
+		var world = null;
+		var verbose = false;
+		console.log("Use verbose = true; to enable extra stats.");
+		console.log("Left click to add ants, use the shift, ctrl or alt keys to modify the type spawned");
+		console.log("Shift + scroll wheel will increase or decrease the simulation speed (scrolling up makes it faster). Fastest speed is 1ms per frame");
+
+		const worldScaling = 4;
+
+		$(document).ready(function () {
+			worldCanvas = $("#worldCanvas")[0];
+			worldCanvas.getContext("2d").imageSmoothingEnabled = false;
+
+			antCanvas = $("#antCanvas")[0];
+			antCanvas.getContext("2d").imageSmoothingEnabled = false;
+
+			$(window).resize(resize).resize();
+
+			// Spawn initial ants, one centered, the rest are randomized
+			spawnAnt(Math.floor(world.width / 2), Math.floor(world.height / 2), "single");
+			while (ants.length < 100) {
+				let type = "rectangle";
+				let x = Math.floor(Math.random() * world.width);
+				let y = Math.floor(Math.random() * world.height);
+				spawnAnt(x, y, type);
+			}
+
+			$('#antCanvas, #worldCanvas').bind('mousewheel', function (e) {
+				if (!e.shiftKey)
+					return;
+
+				if (e.originalEvent.wheelDelta / 120 > 0) {
+					if (updateInterval >= 5)
+						updateInterval = Math.floor(updateInterval / 2);
+					else
+						updateInterval--;
+				}
+				else {
+					if (updateInterval >= 5)
+						updateInterval = Math.floor(updateInterval * 2);
+					else
+						updateInterval++;
+				}
+
+				if (updateInterval < 1)
+					updateInterval = 1;
+				console.log(`New update interval is ${updateInterval} ms per frame`)
+				if (updateTimer !== null)
+					clearInterval(updateTimer);
+				updateTimer = setInterval(update, updateInterval);
+			});
+
+			let lastMouseCoordinate;
+			$("#antCanvas, #worldCanvas").mousedown(function (event) {
+				let xScale = $("#worldCanvas").width() / worldCanvas.width;
+				let yScale = $("#worldCanvas").height() / worldCanvas.height;
+				let x = Math.max(0, Math.min(world.width - 1, Math.floor(event.offsetX / xScale)));
+				let y = Math.max(0, Math.min(world.height - 1, Math.floor(event.offsetY / yScale)));
+				let button = event.button;
+
+				switch (button) {
+					case 0: // Left mouse button
+						let type = "single";
+						if (event.shiftKey)
+							type = "spinner";
+						if (event.altKey)
+							type = "rectangle";
+						if (event.ctrlKey)
+							type = "spaceship";
+						spawnAnt(x, y, type);
+						break;
+					case 2: // Right mouse button
+						// Add mouse move listener
+						lastMouseCoordinate = { x: x, y: y };
+						let worldCtx = worldCanvas.getContext("2d");
+						world[x][y] = 1;
+						worldCtx.fillStyle = getFillStyleFromState(world[x][y], "rgb(0, 255, 0)");
+						worldCtx.fillRect(x, y, 1, 1);
+
+						$("#antCanvas, #worldCanvas").on("mousemove.drawState", function (event) {
+							let xScale = $("#worldCanvas").width() / worldCanvas.width;
+							let yScale = $("#worldCanvas").height() / worldCanvas.height;
+							
+							let x = Math.max(0, Math.min(world.width - 1, Math.floor(event.offsetX / xScale)));
+							let y = Math.max(0, Math.min(world.height - 1, Math.floor(event.offsetY / yScale)));
+							if(Number.isNaN(x))
+								console.log(event);
+							let thisMouseCoordinate = { x: x, y: y };
+							let line = getLine(thisMouseCoordinate.x, thisMouseCoordinate.y, lastMouseCoordinate.x, lastMouseCoordinate.y);
+							let worldCtx = worldCanvas.getContext("2d");
+							for (let i = 0; i < line.length; i++) {
+								let p = line[i];
+								world[p.x][p.y] = 1;
+								worldCtx.fillStyle = getFillStyleFromState(world[p.x][p.y], "rgb(0, 255, 0)");
+								worldCtx.fillRect(p.x, p.y, 1, 1);
+							}
+							lastMouseCoordinate = thisMouseCoordinate;
+						});
+
+						// Remove mouse move listener if you leave the draw area or release any of the mouse buttons
+						$("#antCanvas, #worldCanvas").one("mouseup mouseleave", function (event) {
+							$("#antCanvas, #worldCanvas").off("mousemove.drawState");
+						})
+						break;
+					default:
+						break;
+				}
+			});
+		}); // ~$(document).ready() func
+
+		function resize() {
+			// This might take some time, so stop timer while working on this
+			if (updateTimer !== null)
+				clearInterval(updateTimer);
+
+			let width = Math.floor($(window).width() / worldScaling);
+			let height = Math.floor($(window).height() / worldScaling);
+
+			let newWorld = new Array(width).fill(0).map(item => (new Array(height).fill(0)));
+			newWorld.width = width;
+			newWorld.height = height;
+
+			if (world !== null) {
+				for (let x = 0; x < Math.min(world.width, newWorld.width); x++) {
+					for (let y = 0; y < Math.min(world.height, newWorld.height); y++) {
+						newWorld[x][y] = world[x][y];
+					}
+				}
+			}
+
+			world = newWorld;
+
+			// Setup the canvas sizes according to the new world size
+			worldCanvas.width = antCanvas.width = width;
+			worldCanvas.height = antCanvas.height = height;
+
+			antCanvas.getContext("2d").fillStyle = "rgb(255, 0, 0)";
+			let worldCtx = worldCanvas.getContext("2d");
+
+			// Redraw the new world
+			for (let x = 0; x < world.width; x++) {
+				for (let y = 0; y < world.height; y++) {
+					worldCtx.fillStyle = getFillStyleFromState(world[x][y], "rgb(0, 255, 0)");
+					worldCtx.fillRect(x, y, 1, 1);
+				}
+			}
+
+			for (let i = 0; i < ants.length; i++) {
+				if (ants[i].x >= world.width)
+					ants[i].x -= world.width;
+				if (ants[i].y >= world.height)
+					ants[i].y -= world.height;
+
+				if (ants[i].x >= world.width)
+					ants[i].x = world.width - 1;
+				if (ants[i].y >= world.height)
+					ants[i].y = world.height - 1;
+			}
+
+			console.log(`New world size: [${world.width}, ${world.height}]`);
+
+			// Restart timer
+			updateTimer = setInterval(update, updateInterval);
+		} // ~resize()
+
+		function getFillStyleFromState(state, fillStyle) {
+			if (state <= 0)
+				return "rgb(0, 0, 0)";
+			else
+				return fillStyle;
+		} // ~getFillStyleFromState()
+
+		function getRainbowRgbColor(frequency1, frequency2, frequency3, phase1, phase2, phase3, center, width, counter) {
+			// Center is the R, G, B values middle point, width is how much they oscillate around that
+			// Counter offsets the color to cycle the rainbow
+			if (center == undefined) center = 128;
+			if (width == undefined) width = 127;
+			if (counter == undefined) counter = 0;
+
+			let r = Math.sin(frequency1 * counter + phase1) * width + center;
+			let g = Math.sin(frequency2 * counter + phase2) * width + center;
+			let b = Math.sin(frequency3 * counter + phase3) * width + center;
+			return { r: r, g: g, b: b };
+		} // ~getRainbowRgbColor()
+
+		var updateCounter = 0;
+		function update() {
+			try {
+				let start = performance.now();
+				let antCtx = antCanvas.getContext("2d");
+				antCtx.clearRect(0, 0, antCanvas.width, antCanvas.height);
+
+				let worldCtx = worldCanvas.getContext("2d");
+
+				if (updateCounter % 20 == 0) {
+					worldCtx.globalAlpha = 0.01;
+					worldCtx.fillStyle = `rgb(0,0,0)`;
+					worldCtx.fillRect(0, 0, world.width, world.height);
+				}
+
+				worldCtx.globalAlpha = 1;
+
+				let color = getRainbowRgbColor(1, 1, 1, 0, 2 * Math.PI / 3, 4 * Math.PI / 3, 150, 55, updateCounter / 1000);
+				worldCtx.fillStyle = `rgb(${color.r},${color.g},${color.b})`;
+
+
+				let updateList = [];
+				for (let i = 0; i < ants.length; i++) {
+					let ant = ants[i];
+
+					// At a white square, turn 90° right, flip the color of the square, move forward one unit
+					// At a black square, turn 90° left, flip the color of the square, move forward one unit
+
+					if (world[ant.x][ant.y] === 0) {
+						world[ant.x][ant.y] = 1;
+						ant.dir--;
+						if (ant.dir < 0)
+							ant.dir = 3;
+					}
+					else {
+						world[ant.x][ant.y] = 0;
+						ant.dir++;
+						if (ant.dir > 3)
+							ant.dir = 0;
+					}
+					let updateEntry = { x: ant.x, y: ant.y, state: world[ant.x][ant.y] };
+					updateList.push(updateEntry);
+
+					// Move ant according to its direction
+					switch (ant.dir) {
+						case 0:
+							ant.y--;
+							break;
+						case 1:
+							ant.x++;
+							break;
+						case 2:
+							ant.y++;
+							break;
+						case 3:
+							ant.x--;
+							break;
+						default:
+							ant.dir = 0;
+							break;
+					}
+
+					// Make sure ant is within the wrapped plane
+					if (ant.x < 0)
+						ant.x = world.width - 1;
+					else if (ant.x >= world.width)
+						ant.x = 0;
+
+					if (ant.y < 0)
+						ant.y = world.height - 1;
+					else if (ant.y >= world.height)
+						ant.y = 0;
+
+					// Render new ant location
+					antCtx.fillRect(ant.x, ant.y, 1, 1);
+				}
+
+				for (let i = 0; i < updateList.length; i++) {
+					let updateEntry = updateList[i];
+					//worldCtx.fillStyle = getFillStyleFromState(updateEntry.state, fillStyleForThisCycle);
+					if (updateEntry.state != 0)
+						worldCtx.fillRect(updateEntry.x, updateEntry.y, 1, 1);
+					else
+						worldCtx.clearRect(updateEntry.x, updateEntry.y, 1, 1);
+				}
+
+				let stop = performance.now();
+				if(verbose === true)
+					console.log(`Update took ${stop - start} ms`);
+				updateCounter++;
+			} // ~try
+			catch (error) {
+				clearInterval(updateTimer);
+				updateTimer = null;
+				const waitTime = 10;
+				console.log(`Pausing for ${waitTime} sec due to error`)
+				console.log("Ants:");
+				console.log(ants);
+				console.log("World:");
+				console.log(world);
+
+				setTimeout(function () {
+					updateTimer = setInterval(update, updateInterval);
+				}, waitTime * 1000)
+				throw error;
+			} // ~catch
+		} // ~update()
+
+		function spawnAnt(x, y, type) {
+			let dir = Math.floor(Math.random() * 4);
+			if (dir >= 3)
+				dir = 3;
+
+			let newAnts = [];
+
+			if (typeof type === "undefined" || type === null) {
+				type = "single";
+			}
+
+			switch (type) {
+				case "single":
+					newAnts.push({ x: x, y: y, dir: dir });
+					break;
+				case "spinner":
+					dir = Math.random() < 0.5 ? 0 : 2;
+					newAnts.push({ x: x, y: y, dir: dir });
+					newAnts.push({ x: x + 1, y: y, dir: dir });
+					break;
+				case "rectangle":
+					dir = Math.random() < 0.5 ? 0 : 2;
+					newAnts.push({ x: x, y: y, dir: dir });
+					newAnts.push({ x: x, y: y + 1, dir: dir });
+					break;
+				case "spaceship":
+					newAnts.push({ x: x, y: y, dir: dir });
+					newAnts.push({ x: x, y: y + 1, dir: dir });
+					newAnts.push({ x: x + 1, y: y, dir: dir });
+					newAnts.push({ x: x + 1, y: y + 1, dir: dir });
+					break;
+				default:
+					console.log(`Can't spawn ant; Unknown type: "${type}"`);
+					break;
+			}
+			
+			for (let i = 0; i < newAnts.length; i++) {
+				if (newAnts[i].x < 0)
+					newAnts[i].x += world.width;
+				if (newAnts[i].x < 0)
+					newAnts[i].x = 0;
+
+				if (newAnts[i].x >= world.width)
+					newAnts[i].x -= world.width;
+				if (newAnts[i].x >= world.width)
+					newAnts[i].x = world.width - 1;
+
+				if (newAnts[i].y < 0)
+					newAnts[i].y += world.height;
+				if (newAnts[i].y < 0)
+					newAnts[i].y = 0;
+
+				if (newAnts[i].y >= world.height)
+					newAnts[i].y -= world.height;
+				if (newAnts[i].y >= world.height)
+					newAnts[i].y = world.height - 1;
+
+				ants.push(newAnts[i]);
+			}
+		} // ~spawnAnt()
+
+		function getLine (x1, y1, x2, y2) {
+			// Iterators, counters required by algorithm
+			let x, y, dx, dy, dx1, dy1, px, py, xe, ye, i;
+			let line = [];
+
+			// Calculate line deltas
+			dx = x2 - x1;
+			dy = y2 - y1;
+
+			// Create a positive copy of deltas (makes iterating easier)
+			dx1 = Math.abs(dx);
+			dy1 = Math.abs(dy);
+
+			// Calculate error intervals for both axis
+			px = 2 * dy1 - dx1;
+			py = 2 * dx1 - dy1;
+
+			// The line is X-axis dominant
+			if (dy1 <= dx1) {
+
+				// Line is drawn left to right
+				if (dx >= 0) {
+					x = x1; y = y1; xe = x2;
+				} else { // Line is drawn right to left (swap ends)
+					x = x2; y = y2; xe = x1;
+				}
+
+				line.push({ x: x, y: y }); // Draw first pixel
+
+				// Rasterize the line
+				for (i = 0; x < xe; i++) {
+					x = x + 1;
+
+					// Deal with octants...
+					if (px < 0) {
+						px = px + 2 * dy1;
+					} else {
+						if ((dx < 0 && dy < 0) || (dx > 0 && dy > 0)) {
+							y = y + 1;
+						} else {
+							y = y - 1;
+						}
+						px = px + 2 * (dy1 - dx1);
+					}
+
+					// Draw pixel from line span at currently rasterized position
+					line.push({ x: x, y: y });
+				}
+
+			} else { // The line is Y-axis dominant
+
+				// Line is drawn bottom to top
+				if (dy >= 0) {
+					x = x1; y = y1; ye = y2;
+				} else { // Line is drawn top to bottom
+					x = x2; y = y2; ye = y1;
+				}
+
+				line.push({ x: x, y: y }); // Draw first pixel
+
+				// Rasterize the line
+				for (i = 0; y < ye; i++) {
+					y = y + 1;
+
+					// Deal with octants...
+					if (py <= 0) {
+						py = py + 2 * dx1;
+					} else {
+						if ((dx < 0 && dy < 0) || (dx > 0 && dy > 0)) {
+							x = x + 1;
+						} else {
+							x = x - 1;
+						}
+						py = py + 2 * (dx1 - dy1);
+					}
+
+					// Draw pixel from line span at currently rasterized position
+					line.push({ x: x, y: y });
+				}
+			}
+			return line;
+		} // ~getLine()
+	</script>
+</head>
+<body style="margin:0;padding:0;background-color:black;" oncontextmenu="return false;">
+	<canvas id="worldCanvas" style="margin:0;padding:0;image-rendering:pixelated;width:100%;position:absolute;"></canvas>
+	<canvas id="antCanvas" style="margin:0;padding:0;image-rendering:pixelated;width:100%;position:absolute;"></canvas>
+
+</body>
+</html>
