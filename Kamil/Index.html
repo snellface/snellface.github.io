@@ -1,0 +1,31 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta charset="utf-8" />
+	<title></title>
+	<script src="https://code.jquery.com/jquery-3.4.1.min.js"
+			integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+			crossorigin="anonymous"></script>
+	<script type="text/javascript" src="game.js"></script>
+	<script type="text/javascript" src="level.js"></script>
+	<script type="text/javascript" src="player.js"></script>
+	<style>
+		canvas {
+			margin: 0;
+			padding: 0;
+			image-rendering: crisp-edges; /*firefox require this*/
+			image-rendering: pixelated;
+			-ms-interpolation-mode: nearest-neighbor;
+			/*width: 100%;*/
+			position: absolute;
+		}
+	</style>
+</head>
+<body>
+	<!--Width and height is also set by game.js-->
+	<canvas id="mainCanvas" width="400" height="300">
+
+	</canvas>
+</body>
+</html>

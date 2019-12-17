@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -450,10 +450,21 @@
 			return line;
 		} // ~getLine()
 	</script>
+	<style>
+		canvas {
+			margin: 0;
+			padding: 0;
+			image-rendering: crisp-edges; /*firefox require this*/
+			image-rendering: pixelated;
+			-ms-interpolation-mode: nearest-neighbor;
+			width: 100%;
+			position: absolute;
+		}
+	</style>
 </head>
 <body style="margin:0;padding:0;background-color:black;" oncontextmenu="return false;">
-	<canvas id="worldCanvas" style="margin:0;padding:0;image-rendering:pixelated;width:100%;position:absolute;"></canvas>
-	<canvas id="antCanvas" style="margin:0;padding:0;image-rendering:pixelated;width:100%;position:absolute;"></canvas>
+	<canvas id="worldCanvas"></canvas>
+	<canvas id="antCanvas"></canvas>
 
 </body>
 </html>
