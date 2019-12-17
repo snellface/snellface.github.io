@@ -21,12 +21,17 @@ function createDummyLevel() {
 	for (let x = 0; x < width; x++) {
 		if (x > 30 && x < 35)
 			continue;
-
 		tileArray[x][10] = 2;
+	}
+	// Make ground
+	for (let x = 0; x < width; x++) {
+		if (x % 10 > 3)
+			continue;
+		tileArray[x][17] = 2;
 	}
 
 	// Make a ceiling wall
-	for (let y = 0; y < 6; y++) {
+	for (let y = 0; y < 7; y++) {
 		tileArray[24][y] = 2;
 	}
 
@@ -37,22 +42,27 @@ function createDummyLevel() {
 
 		tileArray[x][height - 1] = 3;
 	}
+	// Make some lava
+	tileArray[0][9] = 3;
+	tileArray[1][9] = 3;
+	tileArray[2][9] = 3;
+
 
 	tileArray[width - 1][0] = 4;
 
 	let playerSpawnLocation = {
 		x: 10,
-		y: 8
+		y: 9
 	};
 
 	tileArray[playerSpawnLocation.x][playerSpawnLocation.y] = 4;
 	tileArray[playerSpawnLocation.x][playerSpawnLocation.y - 1] = 4;
-	tileArray[playerSpawnLocation.x][playerSpawnLocation.y + 1] = 5;
 	tileArray[playerSpawnLocation.x][playerSpawnLocation.y - 2] = 5;
 
 
-	return new Level(width, height, tileArray, playerSpawnLocation);
+	return new Level("dummy", width, height, tileArray, playerSpawnLocation);
 }
+
 
 function Tile(spriteFile, color, isCollidable, isDamageSource) {
 	this.isCollidable = isCollidable;
@@ -71,14 +81,17 @@ function Tile(spriteFile, color, isCollidable, isDamageSource) {
 	};
 }
 
-
-function Level(width, height, tileArray, playerSpawnLocation) {
+function Level(name, width, height, tileArray, playerSpawnLocation) {
 	this.getSize = function () {
 		return { width: width, height: height };
 	};
 
 	const screenTileWidth = 400 / 16;
 	const screenTileHeight = 300 / 16;
+
+	this.getName = function () {
+		return name;
+	};
 
 	// Create first level axis
 	this.tiles = new Array(width);
@@ -155,7 +168,7 @@ function Level(width, height, tileArray, playerSpawnLocation) {
 			if (scroll.y < 0)
 				scroll.y = 0;
 		}
-	}
+	};
 	this.getSpawnLocation = function () {
 		return {
 			x: playerSpawnLocation.x,

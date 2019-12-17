@@ -78,31 +78,26 @@ function getInputTypeFromEvent(event) {
 
 var updateCycle = 0;
 var averageUpdateTime = [];
+var deathFadeCounter = 0;
 function update() {
 	try {
 		// Gather performance info
 		let start = performance.now();
 
+		if (player.getRequestRestart()) {
+			level = loadLevel(level.getName());
+			player = new Player(level.getSpawnLocation());
+		}
+		if (player.getIsDead()) {
+			deathFadeCounter++;
+		}
+		else {
+			deathFadeCounter = 0;
+		}
+
+
 		// Perform world update
-		let scrollSpeed = 0.1;
-		if (input.run)
-			scrollSpeed = 0.5;
-
-		//if (input.left)
-		//	level.moveScroll(-scrollSpeed, 0, true);
-		//else if (input.right)
-		//	level.moveScroll(scrollSpeed, 0, true);
-
-		//if (input.up)
-		//	level.moveScroll(0, -scrollSpeed, true);
-		//else if (input.down)
-		//	level.moveScroll(0, scrollSpeed, true);
-
-
 		player.update(input, level, []);
-		let playerLocation = player.getLocation();
-		level.centerScroll(playerLocation.x, playerLocation.y, true);
-		
 
 		// Begin rendering
 		let context = canvas.getContext("2d");
@@ -112,6 +107,11 @@ function update() {
 		level.draw(context);
 		player.draw(context, level.getScroll());
 
+
+		if (deathFadeCounter > 50) {
+			context.fillStyle = `rgba(0, 0, 0, ${(deathFadeCounter - 50) / 100})`;
+			context.fillRect(0, 0, canvasSize.width, canvasSize.height);
+		}
 
 		// Gather ferformance info
 		let stop = performance.now();
