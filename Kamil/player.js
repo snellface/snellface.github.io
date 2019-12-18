@@ -1,5 +1,5 @@
 // JavaScript source code
-function Player(spawnLocation) {
+function Player(spawnLocation, spriteSheet) {
 	var location = {
 		x: spawnLocation.x,
 		y: spawnLocation.y
@@ -14,6 +14,9 @@ function Player(spawnLocation) {
 			y: location.y
 		};
 	};
+
+	let direction = "right";
+	let action = "still";
 
 	var jumpValidCountdown = 0; // Can only jump when this is above 0, used to allow for jumping shortly after falling of a ledge
 	var boostingJump = false;
@@ -35,12 +38,36 @@ function Player(spawnLocation) {
 
 		// Bleed speed
 		const deacceleration = 0.02;
-		if (speed.x >= deacceleration)
+		if (speed.x >= deacceleration) {
 			speed.x -= deacceleration;
-		else if (speed.x <= -deacceleration)
+			direction = "right";
+		}
+		else if (speed.x <= -deacceleration) {
 			speed.x += deacceleration;
+			direction = "left";
+		}
 		else
 			speed.x = 0;
+
+		let absSpeed = Math.abs(speed.x);
+		if (absSpeed < deacceleration) {
+			if (action !== "still") {
+				action = "still";
+				animationFrame = 0;
+			}
+		}
+		else if (absSpeed < deacceleration) {
+			if (action !== "run") {
+				action = "run";
+				animationFrame = 0;
+			}
+		}
+		else {
+			if (action !== "walk") {
+				action = "walk";
+				animationFrame = 0;
+			}
+		}
 
 		// Limit max speeds
 		let maxSpeed = 0.3;
@@ -148,6 +175,12 @@ function Player(spawnLocation) {
 			return;
 		}
 
+		if (action === "run")
+			animationFrame += 3 / 60;
+		animationFrame += 5 / 60;
+		if (animationFrame >= animationFrameLength)
+			animationFrame = 0;
+
 		keepPlayerInLevelArea(level);
 		level.centerScroll(location.x, location.y, true);
 	};
@@ -201,10 +234,39 @@ function Player(spawnLocation) {
 			location.y = levelSize.height;
 	}
 
+	const animationFrameLength = 4;
+	var animationFrame = 0;
+	function getAnimationInfo() {
+		let spriteX = Math.floor(animationFrame) * 16;
+		switch (action) {
+			case "still":
+				break;
+			case "walk":
+				spriteX += 16 * animationFrameLength;
+				break;
+			case "run":
+				spriteX += 16 * animationFrameLength * 2;
+				break;
+		}
+
+		let spriteY = 0;
+		if (direction === "left")
+			spriteY = 2*16;
+
+		return {
+			x: spriteX,
+			y: spriteY
+		};
+	}
+
 	this.draw = function (context, scroll) {
 		let x = Math.floor((location.x - scroll.x) * 16);
 		let y = Math.floor((location.y - scroll.y) * 16);
-		context.fillStyle = "Azure";
-		context.fillRect(x, y - 16, 16, 32);
+
+		let animationInfo = getAnimationInfo();;
+		context.save();
+		context.scale(1, 1);
+		context.drawImage(spriteSheet, animationInfo.x, animationInfo.y, 16, 32, x, y - 16, 16, 32);
+		context.restore();
 	};
 }

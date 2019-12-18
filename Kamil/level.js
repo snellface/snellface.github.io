@@ -1,11 +1,11 @@
-function loadLevel(levelName) {
+function loadLevel(levelName, spriteSheet) {
 	if (levelName === "dummy")
-		return createDummyLevel();
+		return createDummyLevel(spriteSheet);
 	else
 		throw 'Loading real levels not yet implemented, please request level named "dummy" for now';
 }
 
-function createDummyLevel() {
+function createDummyLevel(spriteSheet) {
 	const width = 150;
 	const height = 30;
 	let tileArray = new Array(width).fill(0).map(item => new Array(height).fill(0));
@@ -22,6 +22,7 @@ function createDummyLevel() {
 		if (x > 30 && x < 35)
 			continue;
 		tileArray[x][10] = 2;
+		tileArray[x][11] = 8;
 	}
 	// Make ground
 	for (let x = 0; x < width; x++) {
@@ -32,7 +33,7 @@ function createDummyLevel() {
 
 	// Make a ceiling wall
 	for (let y = 0; y < 7; y++) {
-		tileArray[24][y] = 2;
+		tileArray[24][y] = 6;
 	}
 
 	// Make some lava
@@ -43,9 +44,14 @@ function createDummyLevel() {
 		tileArray[x][height - 1] = 3;
 	}
 	// Make some lava
-	tileArray[0][9] = 3;
-	tileArray[1][9] = 3;
-	tileArray[2][9] = 3;
+	tileArray[0][10] = 3;
+	tileArray[1][10] = 3;
+	tileArray[2][10] = 3;
+
+	// put some ugly flames on top of lava
+	tileArray[0][9] = 7;
+	tileArray[1][9] = 7;
+	tileArray[2][9] = 7;
 
 
 	tileArray[width - 1][0] = 4;
@@ -60,28 +66,33 @@ function createDummyLevel() {
 	tileArray[playerSpawnLocation.x][playerSpawnLocation.y - 2] = 5;
 
 
-	return new Level("dummy", width, height, tileArray, playerSpawnLocation);
+	return new Level("dummy", width, height, tileArray, playerSpawnLocation, spriteSheet);
 }
 
 
-function Tile(spriteFile, color, isCollidable, isDamageSource) {
+function Tile(spriteInfo, name, color, isCollidable, isDamageSource) {
 	this.isCollidable = isCollidable;
 	this.isDamageSource = isDamageSource;
 	this.color = color;
-	this.sprite = null;
+	this.name = name;
+	//this.sprite = null;
 
-	if (spriteFile !== null) {
-		throw "Loading sprite file is not yet implemented";
-		// Do sprite loading here
-	}
+	//if (spriteInfo !== null) {
+	//	this.sprite = spriteInfo;
+	//}
 
 	this.draw = function (context, x, y) {
-		context.fillStyle = color;
-		context.fillRect(x, y, 16, 16);
+		if (spriteInfo !== null) {
+			context.drawImage(spriteInfo.image, spriteInfo.x * 16, spriteInfo.y * 16, 16, 16, x, y, 16, 16);
+		}
+		else {
+			context.fillStyle = color;
+			context.fillRect(x, y, 16, 16);
+		}
 	};
 }
 
-function Level(name, width, height, tileArray, playerSpawnLocation) {
+function Level(name, width, height, tileArray, playerSpawnLocation, spriteSheet) {
 	this.getSize = function () {
 		return { width: width, height: height };
 	};
@@ -105,22 +116,31 @@ function Level(name, width, height, tileArray, playerSpawnLocation) {
 			let tile = null;
 			switch (tileArrayElement) {
 				case 0:
-					tile = new Tile(null, "Black", false, false);
+					tile = new Tile(null, "bg1", "Black", false, false);
 					break;
 				case 1:
-					tile = new Tile(null, "rgb(50, 50, 50)", false, false);
+					tile = new Tile(null, "bg2", "rgb(50, 50, 50)", false, false);
 					break;
 				case 2:
-					tile = new Tile(null, "Green", true, false);
+					tile = new Tile({ image: spriteSheet, x: 0, y: 4 }, "green floor with orange stuff", "Green", true, false);
 					break;
 				case 3:
-					tile = new Tile(null, "Red", false, true);
+					tile = new Tile({ image: spriteSheet, x: 2, y: 4 }, "lava", "Red", false, true);
 					break;
 				case 4:
-					tile = new Tile(null, "Orange", false, false);
+					tile = new Tile(null, "door pt1", "Orange", false, false);
 					break;
 				case 5:
-					tile = new Tile(null, "Silver", false, false);
+					tile = new Tile(null, "door pt2", "Silver", false, false);
+					break;
+				case 6:
+					tile = new Tile({ image: spriteSheet, x: 1, y: 4 }, "brick wall", "Orange", true, false);
+					break;
+				case 7:
+					tile = new Tile({ image: spriteSheet, x: 3, y: 4 }, "lava flame (non lethal)", "Black", false, false);
+					break;
+				case 8:
+					tile = new Tile({ image: spriteSheet, x: 4, y: 4 }, "green floor without orange stuff", "Green", true, false);
 					break;
 				default:
 					throw "Invalid tile type found";
@@ -154,8 +174,8 @@ function Level(name, width, height, tileArray, playerSpawnLocation) {
 		}
 	};
 	this.centerScroll = function (x, y, lockLevelInView) {
-		scroll.x = x - (screenTileWidth / 2);
-		scroll.y = y - (screenTileHeight / 2);
+		scroll.x = x - screenTileWidth / 2;
+		scroll.y = y - screenTileHeight / 2;
 
 		if (lockLevelInView === true) {
 			if (scroll.x + screenTileWidth >= width)
@@ -205,17 +225,9 @@ function Level(name, width, height, tileArray, playerSpawnLocation) {
 				if (tile === null)
 					continue;
 
-				if (tile.sprite === null) {
-					let tilePixelX = tilePixelOffsetX + x * 16;
-					let tilePixelY = tilePixelOffsetY + y * 16;
-
-					context.fillStyle = tile.color;
-					context.fillRect(tilePixelX, tilePixelY, 16, 16);
-				}
-				else {
-					throw "Render with sprite not yet implemented";
-					// Render tiles sprite
-				}
+				let tilePixelX = tilePixelOffsetX + x * 16;
+				let tilePixelY = tilePixelOffsetY + y * 16;
+				tile.draw(context, tilePixelX, tilePixelY);
 			}
 		}
 	};

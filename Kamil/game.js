@@ -1,5 +1,6 @@
 var level = null;
 var player = null;
+var spriteSheet = null;
 
 var updateTimer = null;
 var canvas = null;
@@ -20,28 +21,37 @@ $(document).ready(function () {
 	setup();
 });
 
-function setup() {
+async function setup() {
 	// Tell the canvas to not smoothen images drawn
 	$("canvas").each(function () {
 		$(this)[0].getContext("2d").imageSmoothingEnabled = false;
 	});
 
+	spriteSheet = await loadImage("sprite.png");
 
 	canvas = $("#mainCanvas")[0];
 	canvas.width = canvasSize.width;
 	canvas.height = canvasSize.height;
 
 	document.addEventListener("keydown", keyDownHandler, false);
-	document.addEventListener("keyup", keyUpHandler, false);	
+	document.addEventListener("keyup", keyUpHandler, false);
 
 	const width = 50;
 	const height = 30;
 
 	// Create world map array
-	level = loadLevel("dummy");
-	player = new Player(level.getSpawnLocation());
+	level = loadLevel("dummy", spriteSheet);
+	player = new Player(level.getSpawnLocation(), spriteSheet);
 
 	start();
+}
+
+function loadImage(url) {
+	return new Promise(r => {
+		let i = new Image();
+		i.onload = (() => r(i));
+		i.src = url;
+	});
 }
 
 function keyDownHandler(event) {
@@ -85,8 +95,8 @@ function update() {
 		let start = performance.now();
 
 		if (player.getRequestRestart()) {
-			level = loadLevel(level.getName());
-			player = new Player(level.getSpawnLocation());
+			level = loadLevel(level.getName(), spriteSheet);
+			player = new Player(level.getSpawnLocation(), spriteSheet);
 		}
 		if (player.getIsDead()) {
 			deathFadeCounter++;
