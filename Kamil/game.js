@@ -69,12 +69,16 @@ function keyUpHandler(event) {
 function getInputTypeFromEvent(event) {
 	switch (event.code) {
 		case "KeyW":
+		case "ArrowUp":
 			return "up";
 		case "KeyA":
+		case "ArrowLeft":
 			return "left";
 		case "KeyS":
+		case "ArrowDown":
 			return "down";
 		case "KeyD":
+		case "ArrowRight":
 			return "right";
 		case "Space":
 			return "jump";
@@ -129,10 +133,8 @@ function update() {
 		averageUpdateTime.push(updateDuration);
 
 		// Render performance info
-		if (updateCycle % 60 === 0) {
-			if (averageUpdateTime.length > 0) {
-				console.log(`Average update() duration: ${averageUpdateTime.reduce((a, b) => a + b, 0) / averageUpdateTime.length} ms`);
-			}
+		if (averageUpdateTime.length > 60) {
+			console.log(`Average update() duration: ${averageUpdateTime.reduce((a, b) => a + b, 0) / averageUpdateTime.length} ms`);
 			averageUpdateTime = [];
 		}
 

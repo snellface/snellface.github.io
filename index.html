@@ -15,8 +15,6 @@
 		var updateInterval = 2;
 		var ants = [];
 		var world = null;
-		var verbose = false;
-		console.log("Use verbose = true; to enable extra stats.");
 		console.log("Left click to add ants, use the shift, ctrl or alt keys to modify the type spawned");
 		console.log("Shift + scroll wheel will increase or decrease the simulation speed (scrolling up makes it faster). Fastest speed is 1ms per frame");
 
@@ -199,6 +197,7 @@
 		} // ~getRainbowRgbColor()
 
 		var updateCounter = 0;
+		var averageUpdateTime = [];
 		function update() {
 			try {
 				let start = performance.now();
@@ -285,9 +284,16 @@
 				}
 
 				let stop = performance.now();
-				if(verbose === true)
-					console.log(`Update took ${stop - start} ms`);
+				let updateDuration = stop - start;
 				updateCounter++;
+
+				averageUpdateTime.push(updateDuration);
+
+				// Render performance info
+				if (averageUpdateTime.length > 60) {
+					console.log(`Average update() duration: ${averageUpdateTime.reduce((a, b) => a + b, 0) / averageUpdateTime.length} ms`);
+					averageUpdateTime = [];
+				}
 			} // ~try
 			catch (error) {
 				clearInterval(updateTimer);
