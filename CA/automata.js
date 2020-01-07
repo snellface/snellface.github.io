@@ -61,7 +61,7 @@ function getUint32FromRgb(rgb) {
 		Math.floor(rgb.b) << 16 |   // blue
 		Math.floor(rgb.g) << 8 |    // green
 		Math.floor(rgb.r);          // red
-}
+} // ~getUint32FromRgb()
 
 function renderGrid(canvas, grid) {
 	const canvasWidth = canvas.width;
