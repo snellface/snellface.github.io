@@ -69,8 +69,21 @@
 					$('#ExpandedViewRow').removeClass('d-none');
 
 					// Generate list of how many of each tiles are to be used
-					//let colors = getColorsFromCanvas(document.querySelector('#SourceImage'));
-					//let palette = mapColorsToPalette(colors, paletteTable);
+					const palette = generateDefaultPaletteTable();
+					const tilesInImage = getPaletteColorsFromCanvas(canvas, palette);
+					// Sort tiles according to number used
+					tilesInImage.sort((e1, e2) => {
+						if (e1.count === e2.count)
+							return 0;
+						else if (e1.count < e2.count)
+							return 1;
+						else
+							return -1;
+					});
+
+					renderTilesUsedTable(tilesInImage);
+					console.log(tilesInImage);
+
 					renderExpandedView();
 				}
 			};
@@ -101,6 +114,17 @@
 				fontSettings,
 				renderPaletteNames
 			);
+		}
+
+		function renderTilesUsedTable(tilesInImage) {
+			const overviewTable = $('#tilesBreakdown');
+			const tbody = overviewTable.find('tbody');
+			tbody.empty();
+
+			for (let tile of tilesInImage) {
+				let row = $(`<tr><td>${tile.entry.name}</td><td>${tile.count}</td></tr>`);
+				tbody.append(row);
+			}
 		}
 	</script>
 
@@ -160,7 +184,24 @@
 			</div>
 		</div>
 
+
 		<div id="ExpandedViewRow" class="row d-none">
+			<div class="col">
+				<details>
+					<summary>Tiles breakdown</summary>
+					<table class="table table-striped" id="tilesBreakdown">
+						<thead>
+							<tr>
+								<th>Tile</th>
+								<th>Num. used</th>
+							</tr>
+						</thead>
+						<tbody>
+
+						</tbody>
+					</table>
+				</details>
+			</div>
 			<div class="col">
 				<h6>Expanded view (right click to save image)</h6>
 				<canvas id="ExpandedImage"></canvas>

@@ -20,10 +20,10 @@ function getColorsFromCanvas(sourceCanvas) {
 		}
 	}
 
-	let palette = [];
+	let colorsArray = [];
 	for (let key in colors) {
 		let color = colors[key];
-		palette.push({
+		colorsArray.push({
 			r: color.rgb.r, 
 			g: color.rgb.g, 
 			b: color.rgb.b, 
@@ -31,7 +31,43 @@ function getColorsFromCanvas(sourceCanvas) {
 		});
 	}
 	
-	return palette;
+	return colorsArray;
+}
+
+function getPaletteColorsFromCanvas(sourceCanvas, palette) {
+	const imageData = loadImageDataFromCanvas(sourceCanvas);
+	const sourceWidth = imageData.width;
+	const sourceHeight = imageData.height;
+
+	let colors = {};
+
+	for (let y = 0; y < sourceHeight; y++) {
+		for (let x = 0; x < sourceWidth; x++) {
+
+			let { r, g, b, a } = getRgbaFromImageData(x, y, imageData);
+			let closestPaletteEntry = getClosestColor(r, g, b, palette);
+
+			const key = closestPaletteEntry.name;
+			if (!Object.prototype.hasOwnProperty.call(colors, key))
+				colors[key] = {
+					count: 1,
+					entry: closestPaletteEntry,
+				};
+			else
+				colors[key].count += 1;
+		}
+	}
+
+	let colorsArray = [];
+	for (let key in colors) {
+		let color = colors[key];
+		colorsArray.push({
+			entry: color.entry,
+			count: color.count,
+		});
+	}
+
+	return colorsArray;
 }
 
 function mapColorsToPalette(colors, paletteTable) {
