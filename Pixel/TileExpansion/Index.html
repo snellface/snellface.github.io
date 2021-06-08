@@ -7,7 +7,10 @@
 	<script src="https://code.jquery.com/jquery-3.4.1.min.js"
 			integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
 			crossorigin="anonymous"></script>
+	<script src="CanvasFunctions.js"></script>
+	<script src="HtmlFunctions.js"></script>
 	<script src="TileExpansion.js"></script>
+	<script src="PaletteTable.js"></script>
 	<script type="text/javascript">
 		$(function () {
 			$("html").on("dragover", function (event) {
@@ -34,11 +37,12 @@
 					return;
 
 				const file = event.originalEvent.target.files[0];
+				$("#FileSelector").val("");
 
 				loadSourceFile(file);
 			});
 
-			$("#SettingsContainer input").change(function (event) {
+			$("#SettingsContainer input, #forcePaletteColors, #renderPaletteNames").change(function (event) {
 				if (Number($('#scale').val() < 1))
 					$('#scale').val(1);
 
@@ -63,23 +67,46 @@
 					context.drawImage(image, 0, 0);
 
 					$('#ExpandedViewRow').removeClass('d-none');
+
+					// Generate list of how many of each tiles are to be used
+					//let colors = getColorsFromCanvas(document.querySelector('#SourceImage'));
+					//let palette = mapColorsToPalette(colors, paletteTable);
 					renderExpandedView();
 				}
 			};
 		}
 
 		function renderExpandedView() {
-			const sourceCanvas = document.querySelector('#SourceImage')
+			const sourceCanvas = document.querySelector('#SourceImage');
 			const imageData = loadImageDataFromCanvas(sourceCanvas);
 			const destinationCanvas = document.querySelector('#ExpandedImage');
-			renderExpandedImage(destinationCanvas, imageData, Number($('#scale').val()), Number($('#padding').val()), $('#color').val());
+			const scale = Number($('#scale').val());
+			const padding = Number($('#padding').val());
+			const paddingColor = $('#color').val();
+
+			const palette = generateDefaultPaletteTable();
+			const fontSettings = {
+				size: 12,
+			};
+
+			const renderPaletteNames = $('#renderPaletteNames').is(':checked');
+			const forcePaletteColors = $('#forcePaletteColors').is(':checked');
+			renderExpandedImage(destinationCanvas,
+				imageData,
+				scale,
+				padding,
+				paddingColor,
+				forcePaletteColors,
+				palette,
+				fontSettings,
+				renderPaletteNames
+			);
 		}
 	</script>
 
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
 
 	<style>
-
 	</style>
 </head>
 <body>
@@ -89,19 +116,22 @@
 				<h6>Settings</h6>
 
 				<form class="row g-3">
-					<div class="col-md-3">
+					<div class="col-md-2">
 						<label for="scale" class="form-label">Tile size [px]</label>
-						<input type="number" class="form-control" id="scale" value="10">
+						<input type="number" class="form-control" id="scale" value="40">
 					</div>
 
-					<div class="col-md-3">
+					<div class="col-md-2">
 						<label for="padding" class="form-label">Padding size [px]</label>
-						<input type="number" class="form-control" id="padding" value="4">
+						<input type="number" class="form-control" id="padding" value="2">
 					</div>
 
-					<div class="col-md-3">
+					<div class="col-md-2">
 						<label for="color" class="form-label">Padding color</label>
-						<input type="color" class="form-control form-control-color" id="color" value="#FFFFFF" title="Choose grout color">
+						<input type="color" class="form-control form-control-color" id="color" value="#E3E3E3" title="Choose grout color">
+					</div>
+
+					<div class="col-md-2">
 					</div>
 				</form>
 			</div>
@@ -115,8 +145,18 @@
 					<button onclick="$('#FileSelector').click();">Select file</button>
 					<span> or drag and drop</span>
 					<a href="Hind-esk.png" target="_blank" class="ms-2">demo sprite</a>
+
+					<span class="ms-2">
+						<input class="form-check-input" type="checkbox" value="" id="forcePaletteColors" checked>
+						<label for="forcePaletteColors" class="form-label">Force palette colors</label>
+					</span>
+
+					<span class="ms-2">
+						<input class="form-check-input" type="checkbox" value="" id="renderPaletteNames" checked>
+						<label for="renderPaletteNames" class="form-label">Render palette names</label>
+					</span>
 				</div>
-				<canvas id="SourceImage"></canvas>
+				<canvas id="SourceImage" width="1" height="1"></canvas>
 			</div>
 		</div>
 

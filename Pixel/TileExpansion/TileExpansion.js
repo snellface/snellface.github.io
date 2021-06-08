@@ -1,23 +1,4 @@
-function loadImageDataFromCanvas(canvas) {
-	const ctx = canvas.getContext('2d');
-	return ctx.getImageData(0, 0, canvas.width, canvas.height);
-}
-
-function getRgbaFromImageData(x, y, imageData) {
-	const offset = (x + y * imageData.width) * 4;
-	const data = imageData.data;
-	if (offset >= data.length)
-		throw "Index outside image area";
-
-	return {
-		r: data[offset + 0],
-		g: data[offset + 1],
-		b: data[offset + 2],
-		a: data[offset + 3],
-	}
-}
-
-function renderExpandedImage(canvas, imageData, tileScale, tilePadding, paddingColor) {
+function renderExpandedImage(canvas, imageData, tileScale, tilePadding, paddingColor, forcePaletteColors, palette, fontSettings, renderPaletteNames) {
 	const sourceWidth = imageData.width;
 	const sourceHeight = imageData.height;
 
@@ -32,14 +13,55 @@ function renderExpandedImage(canvas, imageData, tileScale, tilePadding, paddingC
 	ctx.fillStyle = paddingColor;
 	ctx.fillRect(0, 0, expandedWidth, expandedHeight);
 
+	ctx.font = `${fontSettings.size}px Tahoma`;
+	ctx.textBaseline = "middle";
+	ctx.textAlign = "center";
+
+	// Render tiles
 	for (let y = 0; y < sourceHeight; y++) {
 		for (let x = 0; x < sourceWidth; x++) {
-			const { r, g, b, a } = getRgbaFromImageData(x, y, imageData);
 			const pixelX = x * (tileScale + tilePadding) + tilePadding;
 			const pixelY = y * (tileScale + tilePadding) + tilePadding;
 
+			let { r, g, b, a } = getRgbaFromImageData(x, y, imageData);
+			let closestPaletteEntry = getClosestColor(r, g, b, palette);
+
+			if (forcePaletteColors) {
+				r = closestPaletteEntry.r;
+				g = closestPaletteEntry.g;
+				b = closestPaletteEntry.b;
+			}
+
 			ctx.fillStyle = `rgb(${r}, ${g}, ${b})`
 			ctx.fillRect(xOffset + pixelX, pixelY, tileScale, tileScale);
+
+
+			if (renderPaletteNames) {
+				const hsl = rgbToHsl(closestPaletteEntry.r, closestPaletteEntry.g, closestPaletteEntry.b);
+				const textColor = hsl.l > 0.1 ? "black" : "white";
+				const colorName = closestPaletteEntry.name;
+				const textX = pixelX + Math.floor(tileScale / 2);
+				const textY = pixelY + (Math.floor(tileScale / 2));
+
+				ctx.save();
+				ctx.translate(textX, textY);
+
+				const angle = 45;
+				ctx.rotate(angle * Math.PI / 180);
+
+				ctx.fillStyle = `rgb(${255}, ${255}, ${255}, 0.5)`;
+				let metrics = ctx.measureText(colorName);
+				ctx.fillRect(
+					Math.floor(-metrics.actualBoundingBoxLeft - 1),
+					Math.floor(-metrics.actualBoundingBoxAscent - 2),
+					Math.ceil(metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight + 3),
+					Math.ceil(metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent + 2),
+				)
+
+				ctx.fillStyle = textColor;
+				ctx.fillText(colorName, 0, 0);
+				ctx.restore();
+			}
 		}
 	}
 }
