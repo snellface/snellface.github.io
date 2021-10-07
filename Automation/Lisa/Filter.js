@@ -55,6 +55,8 @@ function compareData(pList, dList) {
 		}
 	}
 
+	console.log(`found ${output.length} matches`);
+
 	return output;
 }
 
@@ -70,12 +72,16 @@ function parsePList(input) {
 	let data = [];
 	let rows = input.split('\n');
 	for (let row of rows) {
-		let columns = row.trim().split('\t');
-		if (columns.length < 2)
+		if (row.trim().length === 0)
 			continue;
 
+		let columns = row.split('\t');
+		let idCol = columns[0].trim();
+		if (idCol.length === 0)
+			break;
+
 		data.push({
-			id: columns[0].trim()
+			id: idCol
 		});
 	}
 
@@ -86,6 +92,9 @@ function parseDList(input) {
 	let data = [];
 	let rows = input.split('\n');
 	for (let row of rows) {
+		if (row.trim().length === 0)
+			continue;
+
 		let columns = row.trim().split('\t');
 		if (columns.length < 2)
 			continue;
