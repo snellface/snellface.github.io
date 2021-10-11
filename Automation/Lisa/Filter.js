@@ -2,16 +2,13 @@ $(document).ready(function () {
 	var pList = [];
 	var dList = [];
 
-	$('#missingIdOutputContainer').hide();
-
 	$('#PList').bind("paste", function (e) {
 		$('#PList').val("");
 
 		let pastedData = e.originalEvent.clipboardData.getData('text');
 		pList = parsePList(pastedData);
 		if (pList.length > 0 && dList.length > 0) {
-			let data = compareData(pList, dList);
-			let response = formatData(data);
+			let response = matchData(pList, dList);
 			$('#ResultList').val(response);
 		}
 
@@ -27,9 +24,8 @@ $(document).ready(function () {
 		let pastedData = e.originalEvent.clipboardData.getData('text');
 		dList = parseDList(pastedData);
 		if (pList.length > 0 && dList.length > 0) {
-			let data = compareData(pList, dList);
-			let response = formatData(data);
-			$('#ResultList').val(response, );
+			let response = matchData(pList, dList);
+			$('#ResultList').val(response);
 		}
 
 		$('#ResultList').parents("div.accordion-item").find("button").click(); // Hack ;)
@@ -40,50 +36,21 @@ $(document).ready(function () {
 });
 
 
-function compareData(pList, dList) {
-	let output = {
-		rows: [],
-		missingIdOrNull: null,
-	};
+function matchData(pList, dList) {
+	let output = "";
 
 	let i = 0;
-
 	for (let p of pList) {
-		let d;
-		// Count up d interator until a match is found or the list is exausted.
-		while (i < dList.length) {
-			d = dList[i++];
-			// Match found
-			if (d.id === p.id) {
-				output.rows.push(d);
-				break;
-			}
+		output += `${p.raw}\t`;
+
+		let matchingRow = dList.find(d => d.id === p.id);
+		if (typeof matchingRow !== 'undefined') {
+			output += matchingRow.doctor;
 		}
+
+		output += "\n";
 	}
-
-	if (output.rows.length < pList.length) {
-		output.missingIdOrNull = pList[output.rows.length].id;
-	}
-
-	console.log(`found ${output.length} matches`);
-
 	return output;
-}
-
-function formatData(data) {
-	let response = "";
-	$('#missingIdOutputContainer').hide();
-
-	if (data.missingIdOrNull !== null) {
-		$('#missingIdOutputContainer').show();
-		$('#missingIdDisplay').text(data.missingIdOrNull);
-		$('#missingIdRow').text(data.rows.length + 1);
-	}
-
-	for (let row of data.rows) {
-		response += `${row.id}\t${row.doctor}\n`;
-	}
-	return response;
 }
 
 function parsePList(input) {
@@ -99,7 +66,8 @@ function parsePList(input) {
 			break;
 
 		data.push({
-			id: idCol
+			id: idCol,
+			raw: row.trim(),
 		});
 	}
 
