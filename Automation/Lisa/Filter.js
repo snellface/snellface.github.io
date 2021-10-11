@@ -2,6 +2,8 @@ $(document).ready(function () {
 	var pList = [];
 	var dList = [];
 
+	$('#missingIdOutputContainer').hide();
+
 	$('#PList').bind("paste", function (e) {
 		$('#PList').val("");
 
@@ -27,7 +29,7 @@ $(document).ready(function () {
 		if (pList.length > 0 && dList.length > 0) {
 			let data = compareData(pList, dList);
 			let response = formatData(data);
-			$('#ResultList').val(response);
+			$('#ResultList').val(response, );
 		}
 
 		$('#ResultList').parents("div.accordion-item").find("button").click(); // Hack ;)
@@ -39,7 +41,11 @@ $(document).ready(function () {
 
 
 function compareData(pList, dList) {
-	let output = [];
+	let output = {
+		rows: [],
+		missingIdOrNull: null,
+	};
+
 	let i = 0;
 
 	for (let p of pList) {
@@ -49,10 +55,14 @@ function compareData(pList, dList) {
 			d = dList[i++];
 			// Match found
 			if (d.id === p.id) {
-				output.push(d);
+				output.rows.push(d);
 				break;
 			}
 		}
+	}
+
+	if (output.rows.length < pList.length) {
+		output.missingIdOrNull = pList[output.rows.length].id;
 	}
 
 	console.log(`found ${output.length} matches`);
@@ -62,7 +72,15 @@ function compareData(pList, dList) {
 
 function formatData(data) {
 	let response = "";
-	for (let row of data) {
+	$('#missingIdOutputContainer').hide();
+
+	if (data.missingIdOrNull !== null) {
+		$('#missingIdOutputContainer').show();
+		$('#missingIdDisplay').text(data.missingIdOrNull);
+		$('#missingIdRow').text(data.rows.length + 1);
+	}
+
+	for (let row of data.rows) {
 		response += `${row.id}\t${row.doctor}\n`;
 	}
 	return response;
