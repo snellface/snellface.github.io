@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Canvas Grid Click</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+    }
+    body {
+      background-color: #f8f9fa;
+    }
+    #appContainer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      border: 1px solid #000;
+      display: block;
+      margin: 20px;
+    }
+    .color-picker {
+      width: 40px;
+      height: 40px;
+      border: 2px solid transparent;
+      margin: 5px;
+      cursor: pointer;
+    }
+    .color-picker.active {
+      border: 3px solid black;
+    }
+    .clear-button {
+      width: 40px;
+      height: 40px;
+      margin: 5px;
+      border: 3px solid black;
+      background-color: white;
+      font-weight: bold;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .export-button, .save-button, .load-button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fefefe;
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+    }
+    textarea {
+      width: 100%;
+      height: 300px;
+    }
+  </style>
+</head>
+<body>
+  <div id="appContainer">
+    <h1 class="my-4">Canvas Grid Click Event</h1>
+    <div id="colorPickerRow" class="mb-3 d-flex justify-content-center flex-wrap align-items-center">
+      <button id="clearButton" class="clear-button">␡</button>
+      <script>
+        for (let i = 0; i < 16; i++) {
+          const isActive = i === 0 ? 'active' : '';
+          const defaultColor = i === 0 ? '#000000' : '#ffffff';
+          document.write(`<input type="color" class="color-picker ${isActive}" id="color${i}" data-index="${i}" value="${defaultColor}">`);
+        }
+      </script>
+      <button id="exportButton" class="btn btn-primary export-button">Export</button>
+	  <button id="saveButton" class="btn btn-success save-button">Save</button>
+      <button id="loadButton" class="btn btn-secondary load-button">Load</button>
+	  <input type="file" id="loadFileInput" accept=".txt" style="display:none" />
+    </div>
+    <canvas id="gridCanvas" width="768" height="768"></canvas>
+  </div>
+
+  <div id="exportModal" class="modal">
+    <div class="modal-content">
+      <textarea placeholder="Exported data will go here..."></textarea>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gridCanvas');
+    const ctx = canvas.getContext('2d');
+    const cellSize = 12;
+    const numRows = 64;
+    const numCols = 64;
+    let currentColorIndex = 0;
+    let isDrawing = false;
+
+    const gridColorIndices = Array.from({ length: numRows }, () => Array(numCols).fill(-1));
+
+    function renderGridToSCADCode() {
+      let pixelGenerationCode = "pxSize = 5;\r\n";
+      pixelGenerationCode += "pxBorder = 1;\r\n";
+      pixelGenerationCode += "pxHeight = 2;\r\n";
+      pixelGenerationCode += "bottomHeight = 1;\r\n";
+      pixelGenerationCode += "module generatePixel(x, y, filled = true, color = \"#DDD\"){\r\n";
+      pixelGenerationCode += "\ttranslate([(pxSize+pxBorder)*x+pxBorder,(pxSize+pxBorder)*y+pxBorder,0]){\r\n";
+      pixelGenerationCode += "\tif(filled){\r\n";
+      pixelGenerationCode += "\t\tcolor(color)\r\n";
+      pixelGenerationCode += "\t\t\ttranslate([0, 0, bottomHeight / 2])\r\n";
+      pixelGenerationCode += "\t\t\tcube([pxSize, pxSize, pxHeight + (bottomHeight / 2)]);}\r\n";
+      pixelGenerationCode += "\t\tcolor(\"#888\")\r\n";
+      pixelGenerationCode += "\t\t\ttranslate([-pxBorder,-pxBorder,0])\r\n";
+      pixelGenerationCode += "\t\t\tcube([pxSize+pxBorder*2, pxSize+pxBorder*2, bottomHeight]);\r\n";
+      pixelGenerationCode += "}}\r\n\r\n";
+
+	  let colorLookup = [];
+	  for(let i = 0; i < 16; i++) {
+		const color = document.getElementById(`color${i}`).value;
+		colorLookup.push(color);
+	  }
+      let xOffset = 0;
+      let yOffset = Number.MAX_VALUE;
+	  let xMax = 0;
+	  for (let y = 0; y < numRows; y++) {
+        for (let x = 0; x < numCols; x++) {
+          const colorIndex = gridColorIndices[y][x];
+          if(colorIndex != -1) {
+			if(y < yOffset)
+				yOffset = y;
+			if(x > xOffset)
+				xOffset = x;
+		  }
+		}
+	  }
+      for (let y = 0; y < numRows; y++) {
+        for (let x = 0; x < numCols; x++) {
+          const colorIndex = gridColorIndices[y][x];
+          if(colorIndex != -1) {
+            pixelGenerationCode += `generatePixel(${(xOffset - x)},${y - yOffset}, true, \"${colorLookup[colorIndex]}\");\r\n`;
+          }
+        }
+      }
+
+      document.querySelector('#exportModal textarea').value = pixelGenerationCode;
+    }
+
+    function drawGrid() {
+	  ctx.fillStyle = "hotpink";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#000';
+	  let colorLookup = [];
+	  for(let i = 0; i < 16; i++) {
+		const color = document.getElementById(`color${i}`).value;
+		colorLookup.push(color);
+	  }
+      for (let y = 0; y < numRows; y++) {
+        for (let x = 0; x < numCols; x++) {
+          const colorIndex = gridColorIndices[y][x];
+          if (colorIndex >= 0) {
+            const color = colorLookup[colorIndex];
+            ctx.fillStyle = color;
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+          }
+          ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    function fillCellAtPosition(x, y, ctrlKey = false, shiftKey = false) {
+      const rect = canvas.getBoundingClientRect();
+      const cellX = Math.floor((x - rect.left) / cellSize);
+      const cellY = Math.floor((y - rect.top) / cellSize);
+
+      if (cellX >= 0 && cellX < numCols && cellY >= 0 && cellY < numRows) {
+        let targetIndex = gridColorIndices[cellY][cellX];
+        if (shiftKey) {
+          currentColorIndex = targetIndex;
+          highlightActiveColorPicker(currentColorIndex);
+        } else if (ctrlKey) {
+          if (targetIndex !== currentColorIndex) {
+            floodFill(cellX, cellY, targetIndex);
+          }
+        } else {
+          gridColorIndices[cellY][cellX] = currentColorIndex;
+        }
+
+        if(targetIndex != currentColorIndex)
+          drawGrid(); // Only redraw grid if a change has been made.
+      }
+    }
+
+    function highlightActiveColorPicker(index) {
+      document.querySelectorAll('.color-picker, .clear-button').forEach(p => p.classList.remove('active'));
+      if (index >= 0) {
+        const picker = document.querySelector(`#color${index}`);
+        if (picker) picker.classList.add('active');
+      } else {
+        document.getElementById('clearButton').classList.add('active');
+      }
+    }
+
+    function floodFill(startX, startY, targetIndex) {
+      if (targetIndex === currentColorIndex) return;
+      const stack = [[startX, startY]];
+      const visited = Array.from({ length: numRows }, () => Array(numCols).fill(false));
+
+      while (stack.length > 0) {
+        const [x, y] = stack.pop();
+        if (x < 0 || y < 0 || x >= numCols || y >= numRows) continue;
+        if (visited[y][x]) continue;
+        if (gridColorIndices[y][x] !== targetIndex) continue;
+
+        gridColorIndices[y][x] = currentColorIndex;
+        visited[y][x] = true;
+
+        stack.push([x + 1, y]);
+        stack.push([x - 1, y]);
+        stack.push([x, y + 1]);
+        stack.push([x, y - 1]);
+      }
+    }
+
+    drawGrid();
+
+    const colorPickers = document.querySelectorAll('.color-picker');
+    colorPickers.forEach(picker => {
+      picker.addEventListener('click', (e) => {
+        const index = parseInt(e.target.dataset.index);
+        if (currentColorIndex === index) {
+          e.target.click();
+        } else {
+          document.querySelectorAll('.color-picker, .clear-button').forEach(p => p.classList.remove('active'));
+          e.target.classList.add('active');
+          currentColorIndex = index;
+        }
+      });
+      picker.addEventListener('input', drawGrid);
+    });
+
+    const clearButton = document.getElementById('clearButton');
+    clearButton.addEventListener('click', () => {
+      document.querySelectorAll('.color-picker, .clear-button').forEach(p => p.classList.remove('active'));
+      clearButton.classList.add('active');
+      currentColorIndex = -1;
+    });
+
+    const exportButton = document.getElementById('exportButton');
+    const exportModal = document.getElementById('exportModal');
+    exportButton.addEventListener('click', () => {
+      renderGridToSCADCode();
+      exportModal.style.display = 'block';
+    });
+    window.addEventListener('click', (event) => {
+      if (event.target === exportModal) {
+        exportModal.style.display = 'none';
+      }
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      fillCellAtPosition(e.clientX, e.clientY, e.ctrlKey, e.shiftKey);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDrawing) {
+        fillCellAtPosition(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDrawing = false;
+    });
+	document.getElementById('saveButton').addEventListener('click', () => {
+      const colors = [];
+      for (let i = 0; i < 16; i++) {
+        const hex = document.getElementById(`color${i}`).value;
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        colors.push(`${r},${g},${b}`);
+      }
+
+      const grid = [];
+      for (let y = 0; y < numRows; y++) {
+        for (let x = 0; x < numCols; x++) {
+          grid.push(gridColorIndices[y][x]);
+        }
+      }
+
+      const dataString = colors.join(',') + ',' + grid.join(',');
+      const blob = new Blob([dataString], { type: 'text/plain' });
+
+      const now = new Date();
+      const pad = (n) => n.toString().padStart(2, '0');
+      const fileName = `SpriteData_${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}.txt`;
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    document.getElementById('loadButton').addEventListener('click', () => {
+      document.getElementById('loadFileInput').click();
+    });
+
+    document.getElementById('loadFileInput').addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result.trim();
+        const values = text.split(',').map(v => v.trim());
+
+        if (values.length !== (16 * 3 + numRows * numCols)) {
+          alert("Invalid file format or data mismatch.");
+          return;
+        }
+
+        // Load colors
+        for (let i = 0; i < 16; i++) {
+          const r = parseInt(values[i * 3]);
+          const g = parseInt(values[i * 3 + 1]);
+          const b = parseInt(values[i * 3 + 2]);
+          const hex = `#${[r,g,b].map(v => v.toString(16).padStart(2,'0')).join('')}`;
+          document.getElementById(`color${i}`).value = hex;
+        }
+
+        // Load grid
+        const gridData = values.slice(48);
+        for (let y = 0; y < numRows; y++) {
+          for (let x = 0; x < numCols; x++) {
+            gridColorIndices[y][x] = parseInt(gridData[y * numCols + x]);
+          }
+        }
+
+        drawGrid();
+      };
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
